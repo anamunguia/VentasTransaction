@@ -1,7 +1,5 @@
 ﻿using AccesoDatos;
-using AccesoDatos.Entidades;
 using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.SqlClient;
 using System.Windows.Forms;
@@ -12,276 +10,150 @@ namespace VentasTransaction
     {
         public Form1()
         {
-
             InitializeComponent();
-
-            try
-            {
-                LoadProducts();
-                LoadClients();
-                LoadStock();
-                InitConceptos();
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-
-        private void LoadProducts()
-        {
-            Producto accesoProductos = new Producto();
-            SqlDataAdapter adapter = accesoProductos.ObtenerProductos();
-            DataTable dt = new DataTable();
-            adapter.Fill(dt);
-            ProductoGrid.DataSource = dt;
-        }
-
-        private void LoadClients()
-        {
-            Ciente accesoClientes = new Cliente();
-            SqlDataAdapter adapter = accesoClientes.ObtenerClientes();
-            DataTable dt = new DataTable();
-            adapter.Fill(dt);
-            ClienteGrid.DataSource = dt;
-        }
-
-        private void LoadStock()
-        {
-            ExistenciaProd existencias = new ExistenciaProd();
-            SqlDataAdapter adapter = existencias.ObtenerExistencias();
-            DataTable dt = new DataTable();
-            adapter.Fill(dt);
-            ExistenciaProdGrid.DataSource = dt;
-            ExistenciaProdGrid.DataSource = dt;
         }
 
         private void button1_Click(object sender, EventArgs e)
         {
-
-
+            GuardarVenta();
         }
 
-        private void AgregarCliente(string nombreCliente)
-        {
-            Cliente cliente = new Cliente);
-            cliente.Nombre = nombreCliente;
-            Cliente accesoClientes = new Cliente();
-            accesoClientes.CrearCliente(cliente);
-        }
-
-        private void BorrarCLiente()
-        {
-            try
-            {
-                int clienteId;
-                if (int.TryParse(ClienteGrid.SelectedRows[0].Cells[0].Value.ToString(), out clienteId))
-                {
-                    Cliente accesoClientes = new Cliente();
-                    accesoClientes.EliminarCliente(clienteId);
-                    LoadClients();
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-        }
-
-        public void EditarCliente()
-        {
-            if (ClienteGrid.SelectedRows.Count > 0)
-            {
-                int clienteId;
-                if (int.TryParse(ClientesGrid.SelectedRows[0].Cells[0].Value.ToString(), out clienteId))
-                {
-                    Cliente accesoClientes = new Cliente();
-                    string nombre = InputBox.ShowDialog("Nuevo valor::", "Editar cliente");
-                    if (string.IsNullOrWhiteSpace(nombre))
-                    {
-                        accesoClientes.ActualizarCliente(clienteId, nombre);
-                        LoadClients();
-                    }
-
-                }
-            }
-        }
-
-        private void GuardarProducto()
-        {
-            try
-            {
-                Producto producto = new Producto();
-                producto.Descripcion = descriptionText.Text;
-                decimal number;
-                if (decimal.TryParse(priceText.Text, out number))
-                {
-                    producto.PrecioUnitario = number;
-                }
-                Producto accesoProductos = new Producto();
-                accesoProductos.CrearProducto(producto);
-                descriptionText.Text = "";
-                priceText.Text = "";
-            }
-            catch (Exception ex)
-            {
-
-            }
-
-        }
-
+        //Debemos reubicar este metodo 
         private void GuardarVenta()
         {
-
-        }
-
-
-        private void agregarProducto_Click(object sender, EventArgs e)
-        {
             try
             {
-                GuardarProducto();
-                LoadProducts();
-                LoadStock();
+                using (SqlConnection con = new SqlConnection(Conexion.ConnectionString))
+                {
+                    SqlTransaction transaction;
+                    con.Open();
+                    transaction = con.BeginTransaction();
+
+                    try
+                    {
+                        string query = "select top(1) Folio from Folios";
+                        int folioActual = 0;
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.CommandType = CommandType.Text;
+                            cmd.Transaction = transaction;
+
+                            if (!int.TryParse(cmd.ExecuteScalar().ToString(), out folioActual))
+                            {
+                                throw new Exception("Ocurrio un error al obtener el folio");
+                            }
+                        }
+
+                        Venta venta = new Venta();
+                        venta.CLienteId = 1;
+                        venta.Folio = folioActual + 1;
+                        venta.Fecha = DateTime.Now;
+
+                        VentaDetalle producto1 = new VentaDetalle();
+                        producto1.ProductoId = 1;
+                        producto1.Cantidad = 1;
+                        producto1.Descripcion = "Azucar kg";
+                        producto1.PrecioUnitario = 27.00m;
+                        producto1.Importe = producto1.Cantidad * producto1.PrecioUnitario;
+
+                        VentaDetalle producto2 = new VentaDetalle();
+                        producto2.ProductoId = 2;
+                        producto2.Cantidad = 1;
+                        producto2.Descripcion = "Jugo Mango";
+                        producto2.PrecioUnitario = 10.00m;
+                        producto2.Importe = producto2.Cantidad * producto2.PrecioUnitario;
+
+                        venta.Conceptos.Add(producto1);
+                        venta.Conceptos.Add(producto2);
+
+                        query = "INSERT INTO Ventas " +
+                            "(Folio,Fecha,ClienteId,Total) " +
+                            "VALUES " +
+                            "(@Folio,@Fecha,@ClienteId,@Total);select scope_identity()";
+
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.CommandType = CommandType.Text;
+                            cmd.Transaction = transaction;
+                            cmd.Parameters.AddWithValue("@Folio", venta.Folio);
+                            cmd.Parameters.AddWithValue("@Fecha", venta.Fecha);
+                            cmd.Parameters.AddWithValue("@ClienteId", venta.CLienteId);
+                            cmd.Parameters.AddWithValue("@Total", venta.Total);
+
+
+                            if (!int.TryParse(cmd.ExecuteScalar().ToString(), out int idVenta))
+                            {
+                                throw new Exception("Ocurrio un error al obtener el id de la venta");
+                            }
+                            venta.Id = idVenta;
+                        }
+
+                        foreach (VentaDetalle concepto in venta.Conceptos)
+                        {
+
+                            query = "INSERT INTO VentasDetalle" +
+                                    "(VentaId,ProductoId,Cantidad,Descripcion,PrecioUnitario,Importe) " +
+                                    "VALUES" +
+                                    "(@VentaId,@ProductoId,@Cantidad,@Descripcion,@PrecioUnitario,@Importe)";
+
+                            using (SqlCommand cmd = new SqlCommand(query, con))
+                            {
+                                cmd.CommandType = CommandType.Text;
+                                cmd.Transaction = transaction;
+
+                                cmd.Parameters.AddWithValue("@VentaId", venta.Id);
+                                cmd.Parameters.AddWithValue("@ProductoId", concepto.ProductoId);
+                                cmd.Parameters.AddWithValue("@Cantidad", concepto.Cantidad);
+                                cmd.Parameters.AddWithValue("@Descripcion", concepto.Descripcion);
+                                cmd.Parameters.AddWithValue("@PrecioUnitario", concepto.PrecioUnitario);
+                                cmd.Parameters.AddWithValue("@Importe", concepto.Importe);
+                                cmd.ExecuteNonQuery();
+                            }
+
+
+                            query = "Update Existencias " +
+                                    "set Existencia = Existencia-@Cantidad " +
+                                    "where ProductoId = @ProductoId";
+
+                            using (SqlCommand cmd = new SqlCommand(query, con))
+                            {
+                                cmd.CommandType = CommandType.Text;
+                                cmd.Transaction = transaction;
+
+                                cmd.Parameters.AddWithValue("@ProductoId", concepto.ProductoId);
+                                cmd.Parameters.AddWithValue("@Cantidad", concepto.Cantidad);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+
+                        query = "Update Folios set Folio = Folio + 1 ";
+
+                        using (SqlCommand cmd = new SqlCommand(query, con))
+                        {
+                            cmd.CommandType = CommandType.Text;
+                            cmd.Transaction = transaction;
+
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        transaction.Commit();
+
+                        MessageBox.Show($"Venta guardada correctamente con folio {venta.Folio}");
+
+                    }
+                    catch (Exception ex)
+                    {
+                        transaction.Rollback();
+                        throw new Exception(ex.Message);
+                    }
+                }
+
             }
             catch (Exception ex)
             {
 
+                MessageBox.Show($"Ocurrio un error al guardar la venta {ex.Message}");
             }
-
-        }
-
-        private void borrarProducto_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                int productoId;
-                if (int.TryParse(ProductoGrid.SelectedRows[0].Cells[0].Value.ToString(), out productoId))
-                {
-                    Producto accesoProductos = new Producto();
-                    accesoProductos.EliminarProducto(productoId);
-                    CargarProductos();
-                    CargarExistencias();
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message);
-            }
-
-        }
-
-        private void borrarCliente_Click(object sender, EventArgs e)
-        {
-            BorrarCLiente();
-        }
-
-        private void actualizarCliente_Click(object sender, EventArgs e)
-        {
-            EditarCliente();
-        }
-
-        private void button2_Click(object sender, EventArgs e)
-        {
-            string client = textBox2.Text;
-            if (!string.IsNullOrEmpty(client))
-            {
-                AgregarCliente(client);
-                LoadClients();
-            }
-        }
-
-        private void EditarExistencia_Click(object sender, EventArgs e)
-        {
-            int ExistenciaId;
-            if (int.TryParse(ExistenciasGrid.SelectedRows[0].Cells[0].Value.ToString(), out ExistenciaId))
-            {
-                ExistenciaProd productoExistencia = new ExistenciaProd();
-                decimal current;
-                if (decimal.TryParse(InputBox.ShowDialog("Existencia actual:", "Editar Existencia"), out current))
-                {
-                    productoExistencia.ActualizarExistencia(ExistenciaId, current);
-                    CargarExistencias();
-                }
-
-            }
-        }
-
-        private void generarVenta_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                int folioActual = 0;
-                Venta venta = new Venta();
-                venta.CLienteId = 1;
-                venta.Folio = folioActual + 1;
-                venta.Fecha = DateTime.Now;
-
-                for (int i = 0; i < ExistenciaProdGrid.RowCount; i++)
-                {
-                    VentaDetalle concepto = new VentaDetalle();
-                    concepto.ProductoId = int.Parse(conceptosGrid.Rows[i].Cells[0].Value.ToString());
-                    concepto.Descripcion = conceptosGrid.Rows[i].Cells[1].Value.ToString();
-                    concepto.Cantidad = decimal.Parse(conceptosGrid.Rows[i].Cells[2].Value.ToString());
-                    concepto.PrecioUnitario = decimal.Parse(conceptosGrid.Rows[i].Cells[3].Value.ToString());
-                    concepto.Importe = decimal.Parse(conceptosGrid.Rows[i].Cells[4].Value.ToString());
-                    venta.Conceptos.Add(concepto);
-                }
-                Venta accesoVentas = new Venta();
-                accesoVentas.crearVenta(venta);
-            }
-            catch (Exception ex)
-            {
-
-            }
-        }
-
-        private void agregarConcepto_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                int rowIndex = conceptosGrid.Rows.Add();
-                DataGridViewRow row = conceptosGrid.Rows[rowIndex];
-                row.Cells["Id"].Value = ExistenciaProdGrid.SelectedRows[0].Cells[0].Value;//
-                row.Cells["Descripcion"].Value = ExistenciaProdGrid.SelectedRows[0].Cells[1].Value;
-                decimal existencia = decimal.Parse(ExistenciaProdGrid.SelectedRows[0].Cells[0].Value.ToString());
-                decimal cantidad;
-                if (decimal.TryParse(cantidadText.Text, out cantidad))
-                {
-                    if (cantidad > existencia) { cantidad = existencia; }
-                    if (cantidad <= 0) { cantidad = 1; }
-
-                    row.Cells["Cantidad"].Value = cantidad;
-                }
-                else
-                {
-                    row.Cells["Cantidad"].Value = 1;
-                }
-                decimal precio;
-                if (decimal.TryParse(ExistenciaProdGrid.SelectedRows[0].Cells[2].Value.ToString(), out precio))
-                {
-                    row.Cells["Precio Unitario"].Value = precio;
-                }
-
-                row.Cells["Importe"].Value = cantidad * precio;
-
-                MessageBox.Show("Agregado!", "");
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Error", "");
-                throw new Exception(ex.Message);
-            }
-
-        }
-
-        private void InitConceptos()
-        {
-            conceptosGrid.Columns.Add("Id", "Id");
-            conceptosGrid.Columns.Add("Descripcion", "Descripcion");
-            conceptosGrid.Columns.Add("Cantidad", "Cantidad");
-            conceptosGrid.Columns.Add("Precio Unitario", "Precio Unitario");
-            conceptosGrid.Columns.Add("Importe", "Importe");
         }
     }
 }

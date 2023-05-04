@@ -54,13 +54,6 @@ namespace AccesoDatos.Entidades
 
         }
 
-        public void MostrarTablaExistencia()
-        {
-            DataTable tablaProductos = ObtenerExistenciaProd();
-
-
-
-        }
 
 
     }

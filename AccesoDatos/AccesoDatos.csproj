@@ -50,7 +50,6 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Entidades\AccesoConceptos.cs" />
     <Compile Include="Entidades\Cliente.cs" />
     <Compile Include="Conexion.cs" />
     <Compile Include="Entidades\ExistenciaProd.cs" />

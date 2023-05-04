@@ -52,7 +52,7 @@ namespace AccesoDatos.Entidades
             {
                 string query = "DELETE FROM Clientes where Id = @Id";
 
-                using (SqlConnection con = new SqlConnection(Conexion.ConnectionString))
+                using (SqlConnection con = new SqlConnection(Conexion.ConectionString))
                 {
                     con.Open();
                     SqlTransaction transaction = con.BeginTransaction();
@@ -88,7 +88,7 @@ namespace AccesoDatos.Entidades
             {
                 string query = "UPDATE Clientes SET Nombre = @Nombre WHERE Id= @Id";
 
-                using (SqlConnection con = new SqlConnection(Conexion.ConnectionString))
+                using (SqlConnection con = new SqlConnection(Conexion.ConectionString))
                 {
                     con.Open();
                     SqlTransaction transaction = con.BeginTransaction();
@@ -120,3 +120,4 @@ namespace AccesoDatos.Entidades
         }
 
     }
+}
